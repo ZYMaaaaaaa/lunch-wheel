@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>午饭抽签大转盘</title>
+  <style>
+    :root {
+      --bg1: #fff7ed;
+      --bg2: #ffedd5;
+      --card: rgba(255,255,255,0.88);
+      --text: #7c2d12;
+      --accent: #ea580c;
+      --accent-dark: #c2410c;
+      --shadow: 0 18px 40px rgba(124,45,18,0.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      background: radial-gradient(circle at top, var(--bg1), var(--bg2));
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app {
+      width: min(960px, 100%);
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 28px 24px 32px;
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 40px);
+    }
+    .sub {
+      margin: 0 0 24px;
+      font-size: 15px;
+      opacity: 0.85;
+    }
+    .wheel-wrap {
+      position: relative;
+      width: min(76vw, 560px);
+      height: min(76vw, 560px);
+      margin: 0 auto 22px;
+    }
+    .pointer {
+      position: absolute;
+      top: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-top: 42px solid var(--accent-dark);
+      z-index: 10;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.18));
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: inset 0 0 0 10px rgba(255,255,255,0.85), 0 16px 32px rgba(124,45,18,0.14);
+    }
+    .center-dot {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fdba74, var(--accent));
+      border: 6px solid #fff;
+      box-shadow: 0 10px 24px rgba(194,65,12,0.28);
+      z-index: 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 14px 30px;
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(194,65,12,0.28);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(1px) scale(0.99); }
+    button:disabled { cursor: not-allowed; opacity: 0.7; }
+    .result {
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.78);
+      box-shadow: inset 0 0 0 1px rgba(194,65,12,0.08);
+      font-size: clamp(18px, 2.5vw, 24px);
+      font-weight: 700;
+    }
+    .tips {
+      margin-top: 16px;
+      font-size: 13px;
+      opacity: 0.75;
+      line-height: 1.6;
+    }
+    @media (max-width: 640px) {
+      .app { padding: 22px 16px 26px; }
+      .pointer {
+        border-left-width: 16px;
+        border-right-width: 16px;
+        border-top-width: 34px;
+      }
+      .center-dot { width: 60px; height: 60px; font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>今天中午吃什么？</h1>
+    <p class="sub">点击下方按钮，随机抽取一个午饭选项。所有菜品等概率。</p>
+
+    <section class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="560" height="560" aria-label="午饭抽签大转盘"></canvas>
+      <div class="center-dot">午饭</div>
+    </section>
+
+    <section class="controls">
+      <button id="spinBtn">开始抽签</button>
+      <div class="result" id="result">准备好了就开始转吧</div>
+    </section>
+
+    <div class="tips">
+      菜品列表：九舍套餐饭、烤鸭饭（一食堂）、麻辣拌（一食堂）、打卤面（二食堂）、浇头面（九舍）、
+      小小米粒、风味兰州拉面、牛肉炒饭（风味）、蛋炒饭（风味）、冒菜（三好街）、荣生生米线（三好街）、
+      溅溅的菜（二食堂）、鸡之恋（外卖）、麻辣烫（外卖）
+    </div>
+  </main>
+
+  <script>
+    const items = [
+      "九舍套餐饭",
+      "烤鸭饭（一食堂）",
+      "麻辣拌（一食堂）",
+      "打卤面（二食堂）",
+      "浇头面（九舍）",
+      "小小米粒",
+      "风味兰州拉面",
+      "牛肉炒饭（风味）",
+      "蛋炒饭（风味）",
+      "冒菜（三好街）",
+      "荣生生米线（三好街）",
+      "溅溅的菜（二食堂）",
+      "鸡之恋（外卖）",
+      "麻辣烫（外卖）"
+    ];
+
+    const colors = [
+      "#fed7aa", "#fdba74", "#fb923c", "#fcd34d", "#fde68a", "#fecaca", "#fca5a5",
+      "#ddd6fe", "#c4b5fd", "#bfdbfe", "#93c5fd", "#bbf7d0", "#86efac", "#f9a8d4"
+    ];
+
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const spinBtn = document.getElementById("spinBtn");
+    const resultEl = document.getElementById("result");
+
+    const size = canvas.width;
+    const center = size / 2;
+    const radius = center - 18;
+    const arc = (Math.PI * 2) / items.length;
+
+    let currentRotation = 0;
+    let spinning = false;
+
+    function wrapText(text, maxCharsPerLine = 6) {
+      const chars = Array.from(text);
+      const lines = [];
+      for (let i = 0; i < chars.length; i += maxCharsPerLine) {
+        lines.push(chars.slice(i, i + maxCharsPerLine).join(""));
+      }
+      return lines;
+    }
+
+    function drawWheel(rotation = 0) {
+      ctx.clearRect(0, 0, size, size);
+
+      for (let i = 0; i < items.length; i++) {
+        const start = rotation + i * arc - Math.PI / 2;
+        const end = start + arc;
+
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+        ctx.arc(center, center, radius, start, end);
+        ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(start + arc / 2);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#7c2d12";
+        ctx.font = "bold 20px 'Microsoft YaHei', sans-serif";
+
+        const lines = wrapText(items[i], 6);
+        const textRadius = radius * 0.68;
+        const lineHeight = 22;
+        const offsetY = -((lines.length - 1) * lineHeight) / 2;
+
+        lines.forEach((line, idx) => {
+          ctx.fillText(line, textRadius, offsetY + idx * lineHeight);
+        });
+        ctx.restore();
+      }
+
+      ctx.beginPath();
+      ctx.arc(center, center, radius + 4, 0, Math.PI * 2);
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "rgba(124,45,18,0.12)";
+      ctx.stroke();
+    }
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function spin() {
+      if (spinning) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      resultEl.textContent = "转盘旋转中...";
+
+      const winnerIndex = Math.floor(Math.random() * items.length);
+      const fullTurns = 6 + Math.floor(Math.random() * 3);
+
+      // 扇区中心角：rotation=0 时，第 i 个扇区中心位于 -(π/2) + (i+0.5)arc
+      // 顶部指针固定在 -π/2，所以最终只需让 rotation = -(i+0.5)arc （模 2π）
+      const finalRotation = -((winnerIndex + 0.5) * arc);
+      const startRotation = currentRotation;
+      const targetRotation = finalRotation + fullTurns * Math.PI * 2;
+      const delta = targetRotation - startRotation;
+
+      const duration = 4600;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = easeOutCubic(t);
+        currentRotation = startRotation + delta * eased;
+        drawWheel(currentRotation);
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          currentRotation = finalRotation; // 锁定到精确角度，避免浮点误差
+          drawWheel(currentRotation);
+          resultEl.textContent = `今天吃：${items[winnerIndex]}`;
+          spinBtn.disabled = false;
+          spinning = false;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    spinBtn.addEventListener("click", spin);
+    drawWheel(currentRotation);
+  </script>
+</body>
+</html>
